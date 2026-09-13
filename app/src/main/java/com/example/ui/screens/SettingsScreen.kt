@@ -170,6 +170,28 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Supabase backup", style = MaterialTheme.typography.titleMedium)
+                    Text("Save this device's vehicles and refill history to your account. Restore adds missing entries from your latest backup.")
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = { settingsViewModel.runSupabaseBackup(context) },
+                        enabled = state.isLoggedIn && !state.isSupabaseSyncing,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(if (state.isSupabaseSyncing) "Please wait…" else "Back up to Supabase") }
+                    OutlinedButton(
+                        onClick = { settingsViewModel.runSupabaseBackup(context, restore = true) },
+                        enabled = state.isLoggedIn && !state.isSupabaseSyncing,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Restore latest Supabase backup") }
+                    if (!state.isLoggedIn) Text("Sign in to back up or restore your data.")
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+
         // Import / Export Backup Card
         item {
             Card(

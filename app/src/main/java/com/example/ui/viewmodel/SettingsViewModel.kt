@@ -58,6 +58,7 @@ data class SettingsUiState(
     val monthlyBudgetRs: Double = 5000.0,
     // Cloud Firestore Sync State
     val isCloudSyncing: Boolean = false,
+    val isSupabaseSyncing: Boolean = false,
     val lastCloudSyncMessage: String? = null,
     val isCloudSyncSuccess: Boolean = true
 )
@@ -611,6 +612,28 @@ class SettingsViewModel(
                     statusMessage = err.localizedMessage ?: "Failed to restore from Firestore cloud",
                     isError = true
                 )
+            }
+        }
+    }
+
+    fun runSupabaseBackup(context: Context, restore: Boolean = false) {
+        if (settingsState.value.isSupabaseSyncing) return
+        settingsState.value = settingsState.value.copy(isSupabaseSyncing = true)
+        val database = com.example.data.local.AppDatabase.getDatabase(context.applicationContext)
+        viewModelScope.launch {
+            try {
+                val backup = com.example.data.remote.SupabaseBackup(database)
+                val message = if (restore) backup.restore() else backup.backup()
+                settingsState.value = settingsState.value.copy(statusMessage = message, isError = false)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                settingsState.value = settingsState.value.copy(
+                    statusMessage = error.localizedMessage ?: "Supabase backup failed. Please retry.",
+                    isError = true
+                )
+            } finally {
+                settingsState.value = settingsState.value.copy(isSupabaseSyncing = false)
             }
         }
     }

@@ -15,3 +15,9 @@ This repository contains an earlier project source snapshot. Build and service c
 - `.env.example` — Placeholder configuration for optional API integrations
 
 Do not commit API keys or private signing files.
+
+## Supabase backup
+
+Manual vehicle/refill backup and restore is available in Settings. See
+[Supabase setup](docs/SUPABASE_SETUP.md) for the database SQL, Firebase login
+integration and required environment configuration.
