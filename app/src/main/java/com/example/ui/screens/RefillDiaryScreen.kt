@@ -71,7 +71,10 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.example.ui.components.DriverRefillBottomSheet
 import com.example.ui.theme.DarkTeal
+import com.example.ui.theme.DeepForest
 import com.example.ui.theme.EmeraldGreen
+import com.example.ui.theme.NeonLime
+import com.example.ui.theme.NeonLimeDark
 import com.example.ui.viewmodel.RefillViewModel
 import com.example.util.AppLocalization
 import com.example.util.CsvExportUtil
@@ -157,14 +160,14 @@ fun RefillDiaryScreen(
                     showAddModal = true
                 },
                 icon = {
-                    Icon(Icons.Default.Add, contentDescription = "Add Refill", tint = Color.White)
+                    Icon(Icons.Default.Add, contentDescription = "Add Refill", tint = DeepForest)
                 },
                 text = {
-                    Text("+ Quick Refill", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("+ Quick Refill", fontWeight = FontWeight.ExtraBold, color = DeepForest)
                 },
-                containerColor = EmeraldGreen,
-                contentColor = Color.White,
-                shape = RoundedCornerShape(18.dp),
+                containerColor = NeonLime,
+                contentColor = DeepForest,
+                shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.testTag("add_refill_fab")
             )
         }

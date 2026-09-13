@@ -61,7 +61,10 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.Pump
 import com.example.data.model.PumpRating
 import com.example.ui.theme.DarkTeal
+import com.example.ui.theme.DeepForest
 import com.example.ui.theme.EmeraldGreen
+import com.example.ui.theme.NeonLime
+import com.example.ui.theme.NeonLimeDark
 import com.example.ui.viewmodel.PumpViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -98,7 +101,7 @@ fun PumpDetailDialog(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(DarkTeal)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -106,7 +109,7 @@ fun PumpDetailDialog(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = pump.name,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Bold,
                             fontSize = 17.sp,
                             maxLines = 1,
@@ -116,21 +119,21 @@ fun PumpDetailDialog(
                             Spacer(modifier = Modifier.width(6.dp))
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
-                                color = Color(0xFFFFD54F)
+                                color = NeonLime
                             ) {
                                 Text(
                                     text = "★ SMART PICK",
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Black,
-                                    color = Color.Black,
+                                    color = DeepForest,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
                         }
                     }
                     Text(
-                        text = "${pump.provider} • ${pump.city} • $distanceKm km away",
-                        color = Color.White.copy(alpha = 0.85f),
+                        text = "${pump.provider} • ${pump.city} • ${if (distanceKm > 0.0) "$distanceKm km away" else "Distance uncalculated"}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
                     )
                 }
@@ -139,7 +142,7 @@ fun PumpDetailDialog(
                     Icon(
                         imageVector = if (pump.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = "Favorite",
-                        tint = if (pump.isFavorite) Color(0xFFFF5252) else Color.White
+                        tint = if (pump.isFavorite) Color(0xFFDC2626) else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -147,7 +150,7 @@ fun PumpDetailDialog(
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Close",
-                        tint = Color.White
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -324,7 +327,8 @@ fun PumpDetailDialog(
                     // Action Buttons (Call / Navigate / Report Live)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Button(
                             onClick = {
@@ -335,24 +339,44 @@ fun PumpDetailDialog(
                                     pumpName = pump.name
                                 )
                             },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = DarkTeal),
-                            shape = RoundedCornerShape(10.dp)
+                            modifier = Modifier
+                                .weight(1.3f)
+                                .height(48.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = NeonLime,
+                                contentColor = DeepForest
+                            ),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Icon(imageVector = Icons.Default.Navigation, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(
+                                imageVector = Icons.Default.Navigation,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = DeepForest
+                            )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Navigate", fontSize = 13.sp)
+                            Text(
+                                text = "Raasta dekho",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = DeepForest
+                            )
                         }
 
-                        Button(
+                        OutlinedButton(
                             onClick = { showLiveReportDialog = true },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
-                            shape = RoundedCornerShape(10.dp)
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Icon(imageVector = Icons.Default.Speed, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Live Report", fontSize = 13.sp)
+                            Icon(
+                                imageVector = Icons.Default.Speed,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Report", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         }
 
                         OutlinedButton(
@@ -360,9 +384,15 @@ fun PumpDetailDialog(
                                 val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${pump.phone}"))
                                 try { context.startActivity(intent) } catch (e: Exception) {}
                             },
-                            shape = RoundedCornerShape(10.dp)
+                            modifier = Modifier.size(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
                         ) {
-                            Icon(imageVector = Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(
+                                imageVector = Icons.Default.Call,
+                                contentDescription = "Call Station",
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
 

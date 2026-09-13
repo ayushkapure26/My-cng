@@ -4,10 +4,12 @@ import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,24 +22,36 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.CurrencyRupee
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.LocationSearching
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.NorthWest
 import androidx.compose.material.icons.filled.OfflinePin
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -68,6 +82,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -75,13 +90,21 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.example.data.model.CachedSearch
 import com.example.data.model.Pump
+import com.example.ui.components.CngGoogleMapView
 import com.example.ui.components.CngMapCanvas
+import com.example.ui.components.ReportLiveStatusModal
+import com.example.ui.theme.AmberAccent
 import com.example.ui.theme.DarkTeal
+import com.example.ui.theme.DeepForest
 import com.example.ui.theme.EmeraldGreen
 import com.example.ui.theme.LightEmerald
+import com.example.ui.theme.NeonLime
+import com.example.ui.theme.NeonLimeDark
+import com.example.ui.theme.NeonRouteLine
 import com.example.ui.viewmodel.PumpDisplayItem
 import com.example.ui.viewmodel.PumpSortOption
 import com.example.ui.viewmodel.PumpViewModel
+import com.example.ui.viewmodel.RefillViewModel
 import com.example.ui.viewmodel.SuggestionType
 import com.example.util.AppLocalization
 import com.example.util.LocalizedStrings
@@ -90,19 +113,15 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.ViewList
-import androidx.compose.ui.platform.LocalContext
-import com.example.ui.components.CngGoogleMapView
-import com.example.ui.components.CngMapCanvas
-import com.example.ui.components.ReportLiveStatusModal
-
 @Composable
 fun PumpFinderScreen(
     pumpViewModel: PumpViewModel,
+    refillViewModel: RefillViewModel? = null,
     selectedLanguage: String = "English",
     onRequestLocationPermission: () -> Unit = {},
-    onSelectPump: (Pump) -> Unit
+    onSelectPump: (Pump) -> Unit,
+    onNavigateToRefills: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val strings = remember(selectedLanguage) { AppLocalization.getStrings(selectedLanguage) }
@@ -113,6 +132,7 @@ fun PumpFinderScreen(
 
     var showMapToggle by rememberSaveable { mutableStateOf(false) }
     var showCityDropdown by rememberSaveable { mutableStateOf(false) }
+    var showSortMenu by rememberSaveable { mutableStateOf(false) }
     var showSuggestions by rememberSaveable { mutableStateOf(true) }
     var showOfflineInfoDialog by rememberSaveable { mutableStateOf(false) }
     var pumpToReport by remember { mutableStateOf<Pump?>(null) }
@@ -120,121 +140,176 @@ fun PumpFinderScreen(
     val dateFormat = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
     val cacheDateFormat = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()) }
     val isGpsActive = filterState.isGpsGranted && filterState.userLocation.isGpsBased
+    val isLocationAvailable = isGpsActive
+
+    val selectClosestDistance: () -> Unit = {
+        val locService = com.example.util.LocationService.getInstance(context)
+        if (isLocationAvailable) {
+            pumpViewModel.setSortOption(PumpSortOption.DISTANCE_LOW)
+        } else if (locService.hasPermission()) {
+            Toast.makeText(context, "Acquiring live GPS location...", Toast.LENGTH_SHORT).show()
+            LocationHelper.fetchCurrentLocation(
+                context = context,
+                onSuccess = { loc ->
+                    pumpViewModel.setGpsLocation(loc.latitude, loc.longitude)
+                    pumpViewModel.setSortOption(PumpSortOption.DISTANCE_LOW)
+                    Toast.makeText(context, "Location acquired: sorted by closest distance", Toast.LENGTH_SHORT).show()
+                },
+                onFailure = {
+                    pumpViewModel.setGpsDenied()
+                    Toast.makeText(context, "GPS location unavailable. Please check device settings.", Toast.LENGTH_SHORT).show()
+                }
+            )
+        } else {
+            onRequestLocationPermission()
+        }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp)
     ) {
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        // Top Search & Auto-complete Bar
-        Box(modifier = Modifier.fillMaxWidth().zIndex(10f)) {
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+        // Compact Header: City Selector + Explicit "Use my location" button
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // City Picker Chip
+            Box {
+                Surface(
+                    onClick = { showCityDropdown = true },
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    OutlinedTextField(
-                        value = filterState.searchQuery,
-                        onValueChange = {
-                            pumpViewModel.updateSearchQuery(it)
-                            showSuggestions = true
-                        },
-                        placeholder = { Text(strings.searchPlaceholder, fontSize = 13.sp) },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = EmeraldGreen) },
-                        trailingIcon = if (filterState.searchQuery.isNotEmpty()) {
-                            {
-                                IconButton(onClick = {
-                                    pumpViewModel.clearSearchQuery()
-                                    showSuggestions = false
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Clear,
-                                        contentDescription = "Clear Search",
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                        } else null,
-                        singleLine = true,
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("pump_search_input"),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-
-                    Spacer(modifier = Modifier.width(6.dp))
-
-                    // GPS Location Icon Button
-                    IconButton(
-                        onClick = {
-                            val locService = com.example.util.LocationService.getInstance(context)
-                            if (locService.hasPermission()) {
-                                LocationHelper.fetchCurrentLocation(
-                                    context = context,
-                                    onSuccess = { loc ->
-                                        pumpViewModel.setGpsLocation(loc.latitude, loc.longitude)
-                                    },
-                                    onFailure = {
-                                        pumpViewModel.setGpsDenied()
-                                    }
-                                )
-                            } else {
-                                onRequestLocationPermission()
-                            }
-                        },
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(
-                                color = if (isGpsActive) Color(0xFFE8F5E9) else MaterialTheme.colorScheme.surfaceVariant,
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                            .testTag("btn_gps_quick_locate")
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Default.MyLocation,
-                            contentDescription = "Locate with GPS",
-                            tint = if (isGpsActive) EmeraldGreen else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "${filterState.selectedCity} ▾",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
+                }
 
+                DropdownMenu(
+                    expanded = showCityDropdown,
+                    onDismissRequest = { showCityDropdown = false }
+                ) {
+                    LocationHelper.INDIAN_CITIES.forEach { cityLoc ->
+                        DropdownMenuItem(
+                            text = { Text(cityLoc.cityName) },
+                            onClick = {
+                                pumpViewModel.selectCity(cityLoc)
+                                showCityDropdown = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Explicit "Use my location" button (does not trigger GPS on startup)
+            Surface(
+                onClick = {
+                    val locService = com.example.util.LocationService.getInstance(context)
+                    if (locService.hasPermission()) {
+                        LocationHelper.fetchCurrentLocation(
+                            context = context,
+                            onSuccess = { loc ->
+                                pumpViewModel.setGpsLocation(loc.latitude, loc.longitude)
+                            },
+                            onFailure = {
+                                pumpViewModel.setGpsDenied()
+                            }
+                        )
+                    } else {
+                        onRequestLocationPermission()
+                    }
+                },
+                shape = RoundedCornerShape(20.dp),
+                color = if (isGpsActive) NeonLime.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surfaceVariant,
+                border = BorderStroke(
+                    1.dp,
+                    if (isGpsActive) NeonLime else MaterialTheme.colorScheme.outlineVariant
+                ),
+                modifier = Modifier.testTag("btn_gps_quick_locate")
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MyLocation,
+                        contentDescription = "Use my location",
+                        tint = if (isGpsActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(15.dp)
+                    )
                     Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isGpsActive) "GPS Active" else "Use my location",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
 
-                    // City Picker Button
-                    Box {
-                        OutlinedButton(
-                            onClick = { showCityDropdown = true },
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.LocationOn,
-                                contentDescription = null,
-                                modifier = Modifier.size(15.dp),
-                                tint = DarkTeal
-                            )
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Text(text = filterState.selectedCity, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
+        Spacer(modifier = Modifier.height(10.dp))
 
-                        DropdownMenu(
-                            expanded = showCityDropdown,
-                            onDismissRequest = { showCityDropdown = false }
-                        ) {
-                            LocationHelper.INDIAN_CITIES.forEach { cityLoc ->
-                                DropdownMenuItem(
-                                    text = { Text(cityLoc.cityName) },
-                                    onClick = {
-                                        pumpViewModel.selectCity(cityLoc)
-                                        showCityDropdown = false
-                                    }
+        // Large search field: “City ya pump khojo”
+        Box(modifier = Modifier.fillMaxWidth().zIndex(10f)) {
+            Column {
+                OutlinedTextField(
+                    value = filterState.searchQuery,
+                    onValueChange = {
+                        pumpViewModel.updateSearchQuery(it)
+                        showSuggestions = true
+                    },
+                    placeholder = {
+                        Text("City ya pump khojo", fontSize = 14.sp)
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    trailingIcon = if (filterState.searchQuery.isNotEmpty()) {
+                        {
+                            IconButton(onClick = {
+                                pumpViewModel.clearSearchQuery()
+                                showSuggestions = false
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = "Clear Search",
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
-                    }
-                }
+                    } else null,
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("pump_search_input"),
+                    shape = RoundedCornerShape(14.dp)
+                )
 
                 // Auto-complete Suggestions Dropdown
                 if (showSuggestions && suggestions.isNotEmpty()) {
@@ -556,20 +631,40 @@ fun PumpFinderScreen(
                 )
             }
 
-            // In-Stock Filter Chip (Tri-color Green)
+            // In-Stock / Available Filter Chip (Tri-color Green & Neon Street styling)
             item {
-                val isSelected = filterState.stockStatusFilter == "AVAILABLE"
+                val isSelected = filterState.availableOnly || filterState.stockStatusFilter == "AVAILABLE" || filterState.gasAvailableOnly
                 FilterChip(
                     selected = isSelected,
                     onClick = {
-                        pumpViewModel.setStockStatusFilter(if (isSelected) "ALL" else "AVAILABLE")
+                        pumpViewModel.toggleAvailableOnly()
                     },
-                    label = { Text("🟢 In Stock Only", fontSize = 12.sp) },
+                    label = { 
+                        Text(
+                            text = if (isSelected) "🟢 Available Only" else "Available Only",
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        ) 
+                    },
                     modifier = Modifier.testTag("chip_stock_available"),
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = Color(0xFFE8F5E9),
-                        selectedLabelColor = Color(0xFF1B5E20)
-                    )
+                        selectedContainerColor = NeonLime.copy(alpha = 0.22f),
+                        selectedLabelColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = if (isSelected) NeonLime else MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    leadingIcon = if (isSelected) {
+                        { 
+                            Icon(
+                                imageVector = Icons.Default.Check, 
+                                contentDescription = null, 
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            ) 
+                        }
+                    } else null
                 )
             }
 
@@ -586,16 +681,50 @@ fun PumpFinderScreen(
             }
 
             item {
+                val isClosestSelected = filterState.sortOption == PumpSortOption.DISTANCE_LOW
                 FilterChip(
-                    selected = filterState.sortOption == PumpSortOption.DISTANCE_LOW,
-                    onClick = {
-                        pumpViewModel.setSortOption(PumpSortOption.DISTANCE_LOW)
+                    selected = isClosestSelected,
+                    onClick = { selectClosestDistance() },
+                    label = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (isLocationAvailable) strings.closestDistance else "${strings.closestDistance} (GPS)",
+                                fontSize = 12.sp,
+                                fontWeight = if (isClosestSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                            if (isLocationAvailable && isClosestSelected) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Surface(
+                                    color = EmeraldGreen,
+                                    shape = RoundedCornerShape(3.dp)
+                                ) {
+                                    Text(
+                                        text = "LIVE",
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color.White,
+                                        modifier = Modifier.padding(horizontal = 3.dp, vertical = 0.5.dp)
+                                    )
+                                }
+                            }
+                        }
                     },
-                    label = { Text(strings.nearby, fontSize = 12.sp) },
-                    modifier = Modifier.testTag("chip_nearby"),
-                    leadingIcon = if (filterState.sortOption == PumpSortOption.DISTANCE_LOW) {
-                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
-                    } else null
+                    modifier = Modifier
+                        .testTag("chip_closest_distance")
+                        .testTag("chip_nearby"),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = NeonLime.copy(alpha = 0.22f),
+                        selectedLabelColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = if (isClosestSelected) NeonLime else MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    leadingIcon = if (isClosestSelected) {
+                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary) }
+                    } else {
+                        { Icon(Icons.Default.NearMe, contentDescription = null, modifier = Modifier.size(14.dp), tint = if (isLocationAvailable) NeonLimeDark else MaterialTheme.colorScheme.outline) }
+                    }
                 )
             }
 
@@ -633,11 +762,20 @@ fun PumpFinderScreen(
             }
 
             item {
+                val isSelected = filterState.availableOnly || filterState.gasAvailableOnly
                 FilterChip(
-                    selected = filterState.gasAvailableOnly,
-                    onClick = { pumpViewModel.toggleGasAvailable() },
+                    selected = isSelected,
+                    onClick = { pumpViewModel.toggleAvailableOnly() },
                     label = { Text(strings.gasAvailable, fontSize = 12.sp) },
-                    modifier = Modifier.testTag("chip_gas_available")
+                    modifier = Modifier.testTag("chip_gas_available"),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = NeonLime.copy(alpha = 0.22f),
+                        selectedLabelColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = if (isSelected) NeonLime else MaterialTheme.colorScheme.outlineVariant
+                    )
                 )
             }
 
@@ -689,7 +827,105 @@ fun PumpFinderScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // View Mode Toggle (List / Google Map)
+        val isAvailableOnlyActive = filterState.availableOnly || filterState.stockStatusFilter == "AVAILABLE" || filterState.gasAvailableOnly
+
+        // Neon Street "Available" Filter Toggle Card
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 2.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .clickable { pumpViewModel.toggleAvailableOnly() }
+                .testTag("filter_toggle_available"),
+            shape = RoundedCornerShape(14.dp),
+            color = if (isAvailableOnlyActive) NeonLime.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surface,
+            border = BorderStroke(
+                width = if (isAvailableOnlyActive) 1.5.dp else 1.dp,
+                color = if (isAvailableOnlyActive) NeonLime else MaterialTheme.colorScheme.outlineVariant
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(
+                                color = if (isAvailableOnlyActive) NeonLime else MaterialTheme.colorScheme.surfaceVariant,
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isAvailableOnlyActive) Icons.Default.CheckCircle else Icons.Default.LocalGasStation,
+                            contentDescription = null,
+                            tint = if (isAvailableOnlyActive) DeepForest else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Show 'Available' Only",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            if (isAvailableOnlyActive) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = EmeraldGreen
+                                ) {
+                                    Text(
+                                        text = "ACTIVE",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color.White,
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                    )
+                                }
+                            }
+                        }
+                        Text(
+                            text = if (isAvailableOnlyActive)
+                                "Filtered to ${pumpsList.size} stations with confirmed gas in stock"
+                            else
+                                "Tap to hide dry / out-of-stock pumps",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Switch(
+                    checked = isAvailableOnlyActive,
+                    onCheckedChange = { pumpViewModel.toggleAvailableOnly() },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = DeepForest,
+                        checkedTrackColor = NeonLime,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    modifier = Modifier.testTag("switch_available_only")
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // View Mode Toggle (List / Google Map) & Sort Selector
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -702,6 +938,234 @@ fun PumpFinderScreen(
             )
 
             Spacer(modifier = Modifier.weight(1f))
+
+            // Sort Selector Dropdown
+            Box {
+                val isClosestSelected = filterState.sortOption == PumpSortOption.DISTANCE_LOW
+                Surface(
+                    onClick = { showSortMenu = true },
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isClosestSelected && isLocationAvailable)
+                        NeonLime.copy(alpha = 0.22f)
+                    else
+                        MaterialTheme.colorScheme.surfaceVariant,
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = if (isClosestSelected && isLocationAvailable)
+                            NeonLime
+                        else
+                            MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    modifier = Modifier
+                        .testTag("btn_sort_selector")
+                        .testTag("btn_sort_dropdown")
+                        .clip(RoundedCornerShape(8.dp))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (isClosestSelected && isLocationAvailable)
+                                Icons.Default.NearMe
+                            else
+                                Icons.Default.Sort,
+                            contentDescription = "Sort Options",
+                            tint = if (isClosestSelected && isLocationAvailable)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = when (filterState.sortOption) {
+                                PumpSortOption.DISTANCE_LOW -> if (isLocationAvailable) strings.closestDistance else "Distance"
+                                PumpSortOption.RATING_HIGH -> strings.highestRated
+                                PumpSortOption.PRICE_LOW -> strings.lowestPrice
+                            },
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                }
+
+                DropdownMenu(
+                    expanded = showSortMenu,
+                    onDismissRequest = { showSortMenu = false },
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.surface)
+                        .testTag("menu_sort_options")
+                ) {
+                    // Option 1: Closest Distance
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = strings.closestDistance,
+                                        fontWeight = if (isClosestSelected) FontWeight.Bold else FontWeight.Medium,
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    if (isLocationAvailable) {
+                                        Surface(
+                                            color = EmeraldGreen,
+                                            shape = RoundedCornerShape(4.dp)
+                                        ) {
+                                            Text(
+                                                text = "GPS ACTIVE",
+                                                fontSize = 8.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = Color.White,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                            )
+                                        }
+                                    } else {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.surfaceVariant,
+                                            shape = RoundedCornerShape(4.dp)
+                                        ) {
+                                            Text(
+                                                text = "TAP TO ENABLE GPS",
+                                                fontSize = 8.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                Text(
+                                    text = if (isLocationAvailable)
+                                        "Nearest stations first using live GPS coordinates"
+                                    else
+                                        "Requires device location • Tap to activate GPS",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.NearMe,
+                                contentDescription = null,
+                                tint = if (isLocationAvailable) NeonLimeDark else MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        trailingIcon = if (isClosestSelected) {
+                            {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        } else null,
+                        onClick = {
+                            showSortMenu = false
+                            selectClosestDistance()
+                        },
+                        modifier = Modifier.testTag("menu_item_closest_distance")
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+
+                    // Option 2: Highest Rated
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(
+                                    text = strings.highestRated,
+                                    fontWeight = if (filterState.sortOption == PumpSortOption.RATING_HIGH) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 13.sp
+                                )
+                                Text(
+                                    text = "Stations with best driver reviews and ratings",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = null,
+                                tint = AmberAccent,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        trailingIcon = if (filterState.sortOption == PumpSortOption.RATING_HIGH) {
+                            {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        } else null,
+                        onClick = {
+                            showSortMenu = false
+                            pumpViewModel.setSortOption(PumpSortOption.RATING_HIGH)
+                        },
+                        modifier = Modifier.testTag("menu_item_highest_rated")
+                    )
+
+                    // Option 3: Lowest Price
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(
+                                    text = strings.lowestPrice,
+                                    fontWeight = if (filterState.sortOption == PumpSortOption.PRICE_LOW) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 13.sp
+                                )
+                                Text(
+                                    text = "Lowest CNG price per kilogram first",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.CurrencyRupee,
+                                contentDescription = null,
+                                tint = EmeraldGreen,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        trailingIcon = if (filterState.sortOption == PumpSortOption.PRICE_LOW) {
+                            {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        } else null,
+                        onClick = {
+                            showSortMenu = false
+                            pumpViewModel.setSortOption(PumpSortOption.PRICE_LOW)
+                        },
+                        modifier = Modifier.testTag("menu_item_lowest_price")
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(6.dp))
 
             Surface(
                 shape = RoundedCornerShape(8.dp),
@@ -732,6 +1196,88 @@ fun PumpFinderScreen(
             }
         }
 
+        // Closest Distance Active Banner / GPS Guidance
+        AnimatedVisibility(visible = filterState.sortOption == PumpSortOption.DISTANCE_LOW && isLocationAvailable) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = NeonLime.copy(alpha = 0.12f),
+                border = BorderStroke(1.dp, NeonLime.copy(alpha = 0.4f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.NearMe,
+                        contentDescription = null,
+                        tint = NeonLimeDark,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Sorted by Closest Distance to your live location",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Surface(
+                        shape = CircleShape,
+                        color = EmeraldGreen
+                    ) {
+                        Box(modifier = Modifier.size(6.dp))
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "GPS ACTIVE",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Black,
+                        color = EmeraldGreen
+                    )
+                }
+            }
+        }
+
+        AnimatedVisibility(visible = filterState.sortOption == PumpSortOption.DISTANCE_LOW && !isLocationAvailable) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+                    .clickable { selectClosestDistance() },
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocationSearching,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Distance estimated from ${filterState.selectedCity} • Tap to enable GPS",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = "Enable GPS →",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+
         if (showMapToggle) {
             Spacer(modifier = Modifier.height(8.dp))
             CngGoogleMapView(
@@ -752,28 +1298,206 @@ fun PumpFinderScreen(
                     .padding(vertical = 4.dp)
             )
         } else {
-            // Pump Stations List
+            // "Pump First" Travel-Pass Stations List
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(vertical = 8.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(top = 8.dp, bottom = 28.dp)
             ) {
-                items(pumpsList) { item ->
-                    PumpStationCard(
-                        displayItem = item,
-                        strings = strings,
-                        dateFormat = dateFormat,
-                        onViewDetails = { onSelectPump(item.pump) },
-                        onUpdateStatus = { pumpToReport = item.pump },
-                        onNavigate = {
-                            com.example.util.NavigationUtil.navigateToPump(
-                                context = context,
-                                latitude = item.pump.latitude,
-                                longitude = item.pump.longitude,
-                                pumpName = item.pump.name
+                if (pumpsList.isNotEmpty()) {
+                    // Prominent Nearest-Pump Feature Card
+                    item(key = "nearest_pump") {
+                        PumpStationCard(
+                            displayItem = pumpsList.first(),
+                            strings = strings,
+                            dateFormat = dateFormat,
+                            isFeaturedNearest = true,
+                            onViewDetails = { onSelectPump(pumpsList.first().pump) },
+                            onUpdateStatus = { pumpToReport = pumpsList.first().pump },
+                            onNavigate = {
+                                com.example.util.NavigationUtil.navigateToPump(
+                                    context = context,
+                                    latitude = pumpsList.first().pump.latitude,
+                                    longitude = pumpsList.first().pump.longitude,
+                                    pumpName = pumpsList.first().pump.name
+                                )
+                            }
+                        )
+                    }
+
+                    if (pumpsList.size > 1) {
+                        item(key = "section_header_other") {
+                            Text(
+                                text = "NEARBY CNG STATIONS • अन्य पंप (${pumpsList.size - 1})",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(start = 4.dp, top = 4.dp)
                             )
                         }
-                    )
+
+                        items(pumpsList.drop(1), key = { it.pump.id }) { item ->
+                            PumpStationCard(
+                                displayItem = item,
+                                strings = strings,
+                                dateFormat = dateFormat,
+                                isFeaturedNearest = false,
+                                onViewDetails = { onSelectPump(item.pump) },
+                                onUpdateStatus = { pumpToReport = item.pump },
+                                onNavigate = {
+                                    com.example.util.NavigationUtil.navigateToPump(
+                                        context = context,
+                                        latitude = item.pump.latitude,
+                                        longitude = item.pump.longitude,
+                                        pumpName = item.pump.name
+                                    )
+                                }
+                            )
+                        }
+                    }
+                } else {
+                    item(key = "empty_pumps") {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 16.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.LocalGasStation,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(44.dp)
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = "No CNG pumps found matching search",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Try switching cities or clearing active filters",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    if (isAvailableOnlyActive) {
+                                        Button(
+                                            onClick = { pumpViewModel.setAvailableOnly(false) },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = NeonLime,
+                                                contentColor = DeepForest
+                                            ),
+                                            shape = RoundedCornerShape(10.dp)
+                                        ) {
+                                            Text("Show All Stations", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = DeepForest)
+                                        }
+                                    }
+                                    OutlinedButton(
+                                        onClick = { pumpViewModel.clearSearchQuery() },
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Text("Reset Search", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Small refill-expense summary below the pump results
+                item(key = "refill_expense_summary") {
+                    val refills = refillViewModel?.refillsList?.collectAsState()?.value ?: emptyList()
+                    val monthlySpend = remember(refills) {
+                        val cal = java.util.Calendar.getInstance()
+                        val m = cal.get(java.util.Calendar.MONTH)
+                        val y = cal.get(java.util.Calendar.YEAR)
+                        refills.filter {
+                            val c = java.util.Calendar.getInstance().apply { timeInMillis = it.date }
+                            c.get(java.util.Calendar.MONTH) == m && c.get(java.util.Calendar.YEAR) == y
+                        }.sumOf { it.totalAmount }
+                    }
+                    val totalKg = remember(refills) { refills.sumOf { it.quantityKg } }
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onNavigateToRefills() }
+                            .testTag("home_refill_summary_card"),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = NeonLime,
+                                    modifier = Modifier.size(38.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.ReceiptLong,
+                                            contentDescription = null,
+                                            tint = DeepForest,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "REFILL & EXPENSE SUMMARY",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "₹${monthlySpend.toInt()} this month",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "${String.format(Locale.US, "%.1f", totalKg)} kg CNG logged",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            OutlinedButton(
+                                onClick = onNavigateToRefills,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.height(48.dp)
+                            ) {
+                                Text("My Refills →", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -809,6 +1533,7 @@ fun PumpFinderScreen(
 
 private data class PumpStatusStyle(
     val label: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val color: Color,
     val bg: Color,
     val subtext: String
@@ -819,6 +1544,7 @@ fun PumpStationCard(
     displayItem: PumpDisplayItem,
     strings: LocalizedStrings,
     dateFormat: SimpleDateFormat,
+    isFeaturedNearest: Boolean = false,
     onViewDetails: () -> Unit,
     onUpdateStatus: () -> Unit,
     onNavigate: () -> Unit
@@ -828,20 +1554,22 @@ fun PumpStationCard(
     val ageMinutes = ((now - pump.lastUpdatedTime) / 60000L).coerceAtLeast(0L)
     val isFresh = ageMinutes < 60L // Configurable freshness threshold: 60 minutes
 
-    // Gas Availability status based on 60-minute freshness
+    // Status style with explicit label and icon
     val statusStyle = if (isFresh) {
         if (pump.isGasAvailable && pump.stockStatus != "OUT_OF_STOCK") {
             PumpStatusStyle(
                 label = "AVAILABLE",
-                color = Color(0xFF2E7D32),
+                icon = Icons.Default.CheckCircle,
+                color = Color(0xFF15803D),
                 bg = Color(0xFFE8F5E9),
                 subtext = "Reported ${if (ageMinutes == 0L) "just now" else "${ageMinutes}m ago"}"
             )
         } else {
             PumpStatusStyle(
                 label = "UNAVAILABLE",
-                color = Color(0xFFD32F2F),
-                bg = Color(0xFFFFEBEE),
+                icon = Icons.Default.Cancel,
+                color = Color(0xFFB91C1C),
+                bg = Color(0xFFFEE2E2),
                 subtext = "Reported ${if (ageMinutes == 0L) "just now" else "${ageMinutes}m ago"}"
             )
         }
@@ -849,218 +1577,340 @@ fun PumpStationCard(
         val lastState = if (pump.isGasAvailable) "Available" else "Unavailable"
         val timeLabel = if (ageMinutes < 1440L) "${ageMinutes / 60}h ago" else "${ageMinutes / 1440}d ago"
         PumpStatusStyle(
-            label = "UNKNOWN",
-            color = Color(0xFFE65100),
-            bg = Color(0xFFFFF3E0),
+            label = "UNKNOWN / STALE",
+            icon = Icons.Default.HelpOutline,
+            color = Color(0xFFB45309),
+            bg = Color(0xFFFEF3C7),
             subtext = "Prev: $lastState ($timeLabel)"
         )
     }
 
-    // Pressure text based on freshness
+    // Pressure text based on freshness (never fake)
     val pressureText = if (isFresh && pump.gasPressureBar > 0.0) {
-        when {
-            pump.gasPressureBar >= 210.0 -> "High (~${pump.gasPressureBar.toInt()} bar)"
-            pump.gasPressureBar >= 180.0 -> "Medium (~${pump.gasPressureBar.toInt()} bar)"
-            else -> "Low (~${pump.gasPressureBar.toInt()} bar)"
-        }
+        "${pump.gasPressureBar.toInt()} bar"
     } else {
         "Not reported"
     }
 
-    // Queue text based on freshness
+    // Queue text based on freshness (never fake)
     val queueText = if (isFresh && pump.queueWaitMinutes >= 0) {
-        "~${pump.queueWaitMinutes}m wait (User report)"
+        "~${pump.queueWaitMinutes}m wait"
     } else {
         "Not reported"
     }
 
-    // Distance only if calculated from coordinates
-    val distanceText = if (displayItem.distanceKm > 0.0) {
-        "${displayItem.distanceKm} km away"
+    // Gas text based on freshness
+    val gasText = if (isFresh) {
+        if (pump.isGasAvailable && pump.stockStatus != "OUT_OF_STOCK") "CNG In Stock" else "No CNG"
     } else {
-        "Distance unavailable"
+        "Not reported"
+    }
+
+    // Distance only if calculated from coordinates (never fake)
+    val distanceText = if (displayItem.distanceKm > 0.0) {
+        "📍 ${displayItem.distanceKm} km away"
+    } else {
+        "Distance uncalculated"
     }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onViewDetails() }
-            .testTag("pump_card_${pump.id}"),
+            .testTag(if (isFeaturedNearest) "nearest_pump_card" else "pump_card_${pump.id}"),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isFeaturedNearest) 4.dp else 1.dp),
+        border = BorderStroke(
+            width = if (isFeaturedNearest) 2.dp else 1.dp,
+            color = if (isFeaturedNearest) NeonLime else MaterialTheme.colorScheme.outlineVariant
+        )
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
-            // Station Header Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                    Text(
-                        text = pump.name,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        maxLines = 1,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "${pump.provider} • ${pump.address}",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
-                    )
-                    Text(
-                        text = distanceText,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = if (displayItem.distanceKm > 0.0) DarkTeal else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                // Gas Status Pill with Freshness indicator
-                Column(horizontalAlignment = Alignment.End) {
-                    Box(
-                        modifier = Modifier
-                            .background(color = statusStyle.bg, shape = RoundedCornerShape(8.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+            // Nearest badge if featured
+            if (isFeaturedNearest) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = NeonLime,
+                    modifier = Modifier.padding(bottom = 10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.NearMe,
+                            contentDescription = null,
+                            tint = DeepForest,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = statusStyle.label,
-                            color = statusStyle.color,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
+                            text = "NEAREST CNG STATION • निकटतम स्टेशन",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = DeepForest
                         )
                     }
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = statusStyle.subtext,
-                        fontSize = 9.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Real Data Row: Pressure & Queue Wait
+            // Travel Pass Row with Route Motif
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(DarkTeal.copy(alpha = 0.06f), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .height(IntrinsicSize.Min)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Speed,
-                        contentDescription = null,
-                        tint = DarkTeal,
-                        modifier = Modifier.size(14.dp)
+                // Route-Line Transit Motif along the left edge
+                Column(
+                    modifier = Modifier
+                        .width(16.dp)
+                        .padding(top = 4.dp, bottom = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Top Start Node
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .background(
+                                color = if (statusStyle.label == "AVAILABLE") Color(0xFF15803D) else MaterialTheme.colorScheme.primary,
+                                shape = CircleShape
+                            )
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Pressure: $pressureText",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = DarkTeal
+                    // Connecting transit line
+                    Box(
+                        modifier = Modifier
+                            .width(2.dp)
+                            .weight(1f)
+                            .background(MaterialTheme.colorScheme.outlineVariant)
+                    )
+                    // Bottom Destination Waypoint Node
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .border(2.dp, NeonLimeDark, CircleShape)
+                            .background(MaterialTheme.colorScheme.surface, CircleShape)
                     )
                 }
 
-                Text(
-                    text = "⏱️ $queueText",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+                Spacer(modifier = Modifier.width(10.dp))
 
-            Spacer(modifier = Modifier.height(8.dp))
+                // Card details
+                Column(modifier = Modifier.weight(1f)) {
+                    // Station Name & Distance Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                            Text(
+                                text = pump.name,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                maxLines = 1,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "${pump.provider} • ${pump.address}",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = distanceText,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (displayItem.distanceKm > 0.0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
 
-            // Price & Source Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
-                    .padding(10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text("CNG Price", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(
-                        text = "₹${pump.pricePerKg} / kg",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = EmeraldGreen
-                    )
-                    Text(
-                        text = "Reported: ${dateFormat.format(Date(pump.lastUpdatedTime))}",
-                        fontSize = 9.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("Source", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(
-                        text = if (pump.reportedByDriver.isNotBlank()) pump.reportedByDriver else "Community Report",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1
-                    )
-                    if (pump.ratingCount > 0) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFB300), modifier = Modifier.size(12.dp))
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Text("${pump.rating} (${pump.ratingCount})", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        // Prominent Status Chip with Explicit Label & Icon
+                        Column(horizontalAlignment = Alignment.End) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = statusStyle.bg,
+                                border = BorderStroke(1.dp, statusStyle.color.copy(alpha = 0.3f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = statusStyle.icon,
+                                        contentDescription = statusStyle.label,
+                                        tint = statusStyle.color,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = statusStyle.label,
+                                        color = statusStyle.color,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = statusStyle.subtext,
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
-                }
-            }
 
-            Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
-            // Action Buttons Row: [Update Status] [Details] [Navigate]
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onUpdateStatus,
-                    modifier = Modifier.weight(1f).height(40.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(horizontal = 6.dp)
-                ) {
-                    Icon(imageVector = Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = DarkTeal)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Update", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                }
+                    // Compact "Gas • Pressure • Queue" Information Strip
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            // Gas Status
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("⛽", fontSize = 12.sp)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = gasText,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
 
-                OutlinedButton(
-                    onClick = onViewDetails,
-                    modifier = Modifier.weight(1f).height(40.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(horizontal = 6.dp)
-                ) {
-                    Text(strings.details, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                }
+                            // Pressure
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("💨", fontSize = 12.sp)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = pressureText,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
 
-                Button(
-                    onClick = onNavigate,
-                    modifier = Modifier.weight(1.2f).height(40.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = DarkTeal),
-                    shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(horizontal = 6.dp)
-                ) {
-                    Icon(imageVector = Icons.Default.Navigation, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.White)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(strings.navigate, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            // Queue Wait
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("⏱️", fontSize = 12.sp)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = queueText,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Price & Source Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(
+                                text = "₹${pump.pricePerKg}",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = " / kg",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 2.dp)
+                            )
+                        }
+
+                        Text(
+                            text = if (pump.reportedByDriver.isNotBlank()) pump.reportedByDriver else "Community report",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Action Buttons Row: [Status] [Details] [Raasta dekho]
+                    // All interactive touch targets are at least 48dp
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onUpdateStatus,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Status", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        }
+
+                        OutlinedButton(
+                            onClick = onViewDetails,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 6.dp)
+                        ) {
+                            Text(strings.details, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        }
+
+                        // Signature Primary Action: Signature Lime #C5F45A with dark forest text #102A23
+                        Button(
+                            onClick = onNavigate,
+                            modifier = Modifier
+                                .weight(1.4f)
+                                .height(48.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = NeonLime,
+                                contentColor = DeepForest
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Navigation,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = DeepForest
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Raasta dekho",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = DeepForest
+                            )
+                        }
+                    }
                 }
             }
         }

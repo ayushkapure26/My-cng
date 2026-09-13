@@ -67,7 +67,10 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.components.GeminiCngAdvisorSheet
 import com.example.ui.theme.AmberAccent
 import com.example.ui.theme.DarkTeal
+import com.example.ui.theme.DeepForest
 import com.example.ui.theme.EmeraldGreen
+import com.example.ui.theme.NeonLime
+import com.example.ui.theme.NeonLimeDark
 import com.example.ui.viewmodel.SettingsViewModel
 import com.example.util.AppLocalization
 import java.text.SimpleDateFormat
@@ -515,9 +518,13 @@ fun CngSavingsCalculatorDialog(onDismiss: () -> Unit) {
         confirmButton = {
             Button(
                 onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(containerColor = DarkTeal)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = NeonLime,
+                    contentColor = DeepForest
+                ),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Done", color = Color.White)
+                Text("Done", fontWeight = FontWeight.Bold, color = DeepForest)
             }
         }
     )
@@ -625,9 +632,13 @@ fun HydroTestComplianceDialog(onDismiss: () -> Unit) {
                     Toast.makeText(context, "Hydro-test record saved successfully", Toast.LENGTH_SHORT).show()
                     onDismiss()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = DarkTeal)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = NeonLime,
+                    contentColor = DeepForest
+                ),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Save Compliance Date", color = Color.White)
+                Text("Save Compliance Date", fontWeight = FontWeight.Bold, color = DeepForest)
             }
         },
         dismissButton = {
@@ -695,9 +706,13 @@ fun CngSafetyGuidesDialog(
         confirmButton = {
             Button(
                 onClick = onOpenAiAdvisor,
-                colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = NeonLime,
+                    contentColor = DeepForest
+                ),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Ask AI Advisor", color = Color.White)
+                Text("Ask AI Advisor", fontWeight = FontWeight.Bold, color = DeepForest)
             }
         },
         dismissButton = {

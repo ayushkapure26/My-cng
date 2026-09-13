@@ -30,6 +30,7 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -244,14 +245,14 @@ fun CngTrackMainApp(
                     ) {
                         Surface(
                             shape = RoundedCornerShape(10.dp),
-                            color = EmeraldGreen,
+                            color = com.example.ui.theme.NeonLime,
                             modifier = Modifier.size(34.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.LocalGasStation,
-                                    contentDescription = "CNGमित्र Logo",
-                                    tint = Color.White,
+                                    contentDescription = "CNG मित्र Logo",
+                                    tint = com.example.ui.theme.DeepForest,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -259,15 +260,15 @@ fun CngTrackMainApp(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = strings.appTitle,
+                                text = "CNG मित्र",
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 18.sp,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = strings.appTagline,
-                                fontSize = 10.sp,
-                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1
                             )
                         }
@@ -281,8 +282,8 @@ fun CngTrackMainApp(
                             .clickable { showLanguageDialog = true }
                             .testTag("top_bar_translate_button"),
                         shape = RoundedCornerShape(20.dp),
-                        color = Color(0x33FFFFFF),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f))
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
@@ -291,7 +292,7 @@ fun CngTrackMainApp(
                             Icon(
                                 imageVector = Icons.Default.Translate,
                                 contentDescription = "Translate App",
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(15.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
@@ -308,7 +309,7 @@ fun CngTrackMainApp(
                                     settingsState.selectedLanguage.startsWith("Spanish") || settingsState.selectedLanguage.contains("Español") -> "ESP"
                                     else -> "English"
                                 },
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
                             )
@@ -329,8 +330,8 @@ fun CngTrackMainApp(
                         BadgedBox(
                             badge = {
                                 Badge(
-                                    containerColor = EmeraldGreen,
-                                    contentColor = Color.White
+                                    containerColor = com.example.ui.theme.NeonLime,
+                                    contentColor = com.example.ui.theme.DeepForest
                                 ) {
                                     Text("1", fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                 }
@@ -339,7 +340,7 @@ fun CngTrackMainApp(
                             Icon(
                                 imageVector = Icons.Default.Notifications,
                                 contentDescription = "Notifications",
-                                tint = Color.White
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
@@ -352,12 +353,14 @@ fun CngTrackMainApp(
                         Icon(
                             imageVector = Icons.Default.AccountCircle,
                             contentDescription = "Profile & Settings",
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(26.dp)
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkTeal)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             )
         },
         bottomBar = {
@@ -365,15 +368,16 @@ fun CngTrackMainApp(
             val currentRoute = navBackStackEntry?.destination?.route
 
             NavigationBar(
-                containerColor = DarkTeal,
-                contentColor = Color.White
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                tonalElevation = 4.dp
             ) {
                 bottomNavScreens.forEach { screen ->
                     val isSelected = currentRoute == screen.route
                     val screenTitle = when (screen) {
-                        Screen.Home -> strings.navHome
-                        Screen.Pumps -> strings.navPumps
-                        Screen.Refills -> "Refill Tracker"
+                        Screen.Home -> "Pumps"
+                        Screen.Pumps -> "Pumps"
+                        Screen.Refills -> "My Refills"
                         Screen.More -> "More"
                         Screen.Cars -> "Vehicle"
                         Screen.Reports -> strings.navReports
@@ -386,16 +390,14 @@ fun CngTrackMainApp(
                         icon = {
                             Icon(
                                 imageVector = screen.icon,
-                                contentDescription = screenTitle,
-                                tint = if (isSelected) EmeraldGreen else Color.White.copy(alpha = 0.7f)
+                                contentDescription = screenTitle
                             )
                         },
                         label = {
                             Text(
                                 text = screenTitle,
-                                fontSize = 11.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f)
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                             )
                         },
                         selected = isSelected,
@@ -409,11 +411,11 @@ fun CngTrackMainApp(
                             }
                         },
                         colors = NavigationBarItemDefaults.colors(
-                            indicatorColor = EmeraldGreen.copy(alpha = 0.25f),
-                            selectedIconColor = EmeraldGreen,
-                            unselectedIconColor = Color.White.copy(alpha = 0.7f),
-                            selectedTextColor = Color.White,
-                            unselectedTextColor = Color.White.copy(alpha = 0.7f)
+                            indicatorColor = com.example.ui.theme.NeonLime,
+                            selectedIconColor = com.example.ui.theme.DeepForest,
+                            selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     )
                 }
@@ -470,11 +472,37 @@ fun CngTrackMainApp(
             composable(Screen.Pumps.route) {
                 PumpFinderScreen(
                     pumpViewModel = pumpViewModel,
+                    refillViewModel = refillViewModel,
                     selectedLanguage = settingsState.selectedLanguage,
-                    onRequestLocationPermission = { showGpsRationaleDialog = true },
+                    onRequestLocationPermission = {
+                        val locService = com.example.util.LocationService.getInstance(context)
+                        if (locService.hasPermission()) {
+                            LocationHelper.fetchCurrentLocation(
+                                context = context,
+                                onSuccess = { loc ->
+                                    pumpViewModel.setGpsLocation(loc.latitude, loc.longitude)
+                                },
+                                onFailure = {
+                                    pumpViewModel.setGpsDenied()
+                                }
+                            )
+                        } else {
+                            showGpsRationaleDialog = true
+                        }
+                    },
                     onSelectPump = { pump ->
                         selectedPumpForDetail = pump
-                        selectedPumpDistance = 3.1
+                        selectedPumpDistance = 2.4
+                    },
+                    onNavigateToRefills = {
+                        navController.navigate(Screen.Refills.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate(Screen.Settings.route)
                     }
                 )
             }

@@ -1,6 +1,6 @@
 {
-  "name": "CNGमित्र",
-  "description": "CNG station finder, live status & pressure, vehicle mileage diary, and monthly expense tracker.",
+  "name": "CNG मित्र",
+  "description": "Neon Street mobility app for CNG station finder, verified status & pressure, vehicle mileage diary, and expense tracking.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

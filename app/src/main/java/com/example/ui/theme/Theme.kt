@@ -12,45 +12,49 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = BrightMint,
-    onPrimary = DarkTeal,
-    primaryContainer = DarkSurfaceVariant,
-    onPrimaryContainer = BrightMint,
-    secondary = ElectricCyan,
-    onSecondary = Color.Black,
-    tertiary = AmberAccent,
-    background = DarkBackground,
-    onBackground = DarkOnBackground,
-    surface = DarkSurface,
-    onSurface = DarkOnSurface,
-    surfaceVariant = DarkSurfaceVariant,
-    onSurfaceVariant = DarkOnBackground,
-    outline = DarkBorder,
-    outlineVariant = DarkBorder.copy(alpha = 0.6f)
+    primary = NeonLime,
+    onPrimary = DeepForest,
+    primaryContainer = NeonDarkSurfaceVariant,
+    onPrimaryContainer = NeonLime,
+    secondary = NeonLime,
+    onSecondary = DeepForest,
+    tertiary = StatusAmberDark,
+    background = NeonDarkBg,
+    onBackground = NeonDarkText,
+    surface = NeonDarkSurface,
+    onSurface = NeonDarkText,
+    surfaceVariant = NeonDarkSurfaceVariant,
+    onSurfaceVariant = NeonDarkTextMuted,
+    outline = NeonDarkBorder,
+    outlineVariant = NeonDarkBorder.copy(alpha = 0.7f),
+    error = StatusRedDark,
+    onError = Color.White
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = EmeraldGreen,
-    onPrimary = Color.White,
-    primaryContainer = LightSurfaceVariant,
-    onPrimaryContainer = DarkTeal,
-    secondary = DarkTeal,
+    primary = NeonLime,
+    onPrimary = DeepForest,
+    primaryContainer = NeonLightSurfaceVariant,
+    onPrimaryContainer = DeepForest,
+    secondary = DeepForest,
     onSecondary = Color.White,
-    tertiary = AmberAccent,
-    background = LightBackground,
-    onBackground = LightOnBackground,
-    surface = LightSurface,
-    onSurface = LightOnSurface,
-    surfaceVariant = LightSurfaceVariant,
-    onSurfaceVariant = LightOnSurfaceVariant,
-    outline = LightBorder,
-    outlineVariant = LightBorder.copy(alpha = 0.7f)
+    tertiary = StatusAmberLight,
+    background = NeonLightBg,
+    onBackground = NeonLightText,
+    surface = NeonLightSurface,
+    onSurface = NeonLightText,
+    surfaceVariant = NeonLightSurfaceVariant,
+    onSurfaceVariant = NeonLightTextMuted,
+    outline = NeonLightBorder,
+    outlineVariant = NeonLightBorder.copy(alpha = 0.8f),
+    error = StatusRedLight,
+    onError = Color.White
 )
 
 @Composable
 fun CNGTrackTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true, // Enable Dynamic Colors (Material You) on Android 12+ with dark teal fallback
+    dynamicColor: Boolean = false, // Neon Street brand system prioritized for consistent mobile mobility aesthetic
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {

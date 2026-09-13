@@ -41,6 +41,7 @@ data class PumpFilterState(
     val searchQuery: String = "",
     val openNowOnly: Boolean = false,
     val gasAvailableOnly: Boolean = false,
+    val availableOnly: Boolean = false,
     val pressureAvailableOnly: Boolean = false,
     val stockStatusFilter: String = "ALL", // "ALL", "AVAILABLE", "OUT_OF_STOCK", "NEEDS_UPDATE"
     val selectedHighwayCorridor: String = "All Corridors", // Trip Mode highway filter
@@ -128,12 +129,16 @@ class PumpViewModel(
             }
         }
 
+        // Apply Available Only Filter (Confirmed In-Stock & Available)
+        if (filter.availableOnly || filter.gasAvailableOnly) {
+            list = list.filter {
+                it.pump.isGasAvailable && !it.pump.stockStatus.equals("OUT_OF_STOCK", ignoreCase = true)
+            }
+        }
+
         // Apply Toggle Filters
         if (filter.openNowOnly) {
             list = list.filter { it.pump.isOpen }
-        }
-        if (filter.gasAvailableOnly) {
-            list = list.filter { it.pump.isGasAvailable }
         }
         if (filter.pressureAvailableOnly) {
             list = list.filter { it.pump.gasPressureBar > 180.0 }
@@ -304,8 +309,26 @@ class PumpViewModel(
         filterState.value = filterState.value.copy(openNowOnly = !filterState.value.openNowOnly)
     }
 
+    fun toggleAvailableOnly() {
+        val currentActive = filterState.value.availableOnly || filterState.value.gasAvailableOnly || filterState.value.stockStatusFilter == "AVAILABLE"
+        val next = !currentActive
+        filterState.value = filterState.value.copy(
+            availableOnly = next,
+            gasAvailableOnly = next,
+            stockStatusFilter = if (next) "AVAILABLE" else "ALL"
+        )
+    }
+
+    fun setAvailableOnly(active: Boolean) {
+        filterState.value = filterState.value.copy(
+            availableOnly = active,
+            gasAvailableOnly = active,
+            stockStatusFilter = if (active) "AVAILABLE" else "ALL"
+        )
+    }
+
     fun toggleGasAvailable() {
-        filterState.value = filterState.value.copy(gasAvailableOnly = !filterState.value.gasAvailableOnly)
+        toggleAvailableOnly()
     }
 
     fun togglePressureAvailable() {
@@ -383,7 +406,12 @@ class PumpViewModel(
     }
 
     fun setStockStatusFilter(status: String) {
-        filterState.value = filterState.value.copy(stockStatusFilter = status)
+        val isAvail = status.equals("AVAILABLE", ignoreCase = true)
+        filterState.value = filterState.value.copy(
+            stockStatusFilter = status,
+            availableOnly = isAvail,
+            gasAvailableOnly = isAvail
+        )
     }
 
     fun toggleTripMode() {
