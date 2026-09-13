@@ -1,11 +1,17 @@
-<div align="center">
+# CNG मित्र — Development Source
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Android development source for the CNG मित्र driver companion.
 
-  <h1>Built with AI Studio</h2>
+## Looking for the maintained project?
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+Visit **[CNG-Mitra](https://github.com/ayushkapure26/CNG-Mitra)** for the documented build setup, automated checks, and debug APK downloads.
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+This repository contains an earlier project source snapshot. Build and service configuration instructions are maintained in the linked repository.
 
-</div>
+## Source layout
+
+- `app/` — Android application source and resources
+- `gradle/` — Dependency version catalog
+- `.env.example` — Placeholder configuration for optional API integrations
+
+Do not commit API keys or private signing files.
