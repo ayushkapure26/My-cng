@@ -48,7 +48,7 @@ android {
       signingConfig = signingConfigs.getByName("release")
     }
     debug {
-      applicationIdSuffix = ".supabasetest"
+      applicationIdSuffix = ".uipreview"
       versionNameSuffix = "-test"
       signingConfig = signingConfigs.getByName("debugConfig")
     }

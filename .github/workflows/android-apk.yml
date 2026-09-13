@@ -25,11 +25,15 @@ jobs:
         run: sdkmanager 'platforms;android-36.1' 'build-tools;36.0.0'
       - name: Create test signing key
         run: keytool -genkeypair -keystore debug.keystore -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 365 -dname 'CN=Android Debug,O=Android,C=US'
+      - name: Check dashboard and render previews
+        run: gradle :app:testDebugUnitTest --tests com.example.DriveDashboardScreenshotTest -Droborazzi.test.record=true --no-configuration-cache --stacktrace
       - name: Build APK
         run: gradle :app:assembleDebug --stacktrace --no-configuration-cache
       - uses: actions/upload-artifact@v4
         with:
-          name: CNG-Mitra-debug-APK
-          path: app/build/outputs/apk/debug/*.apk
+          name: CNG-Mitra-UI-Preview
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/ui-preview/*.png
           if-no-files-found: error
           retention-days: 7
