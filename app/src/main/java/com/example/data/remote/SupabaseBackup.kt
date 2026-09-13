@@ -5,12 +5,11 @@ import com.example.BuildConfig
 import com.example.data.local.AppDatabase
 import com.example.data.model.Car
 import com.example.data.model.FuelRefill
-import com.google.firebase.auth.FirebaseAuth
+import com.example.util.SupabaseSession
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
@@ -22,7 +21,7 @@ import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-/** Manual, immutable backups. Firebase login is verified by Supabase third-party Auth. */
+/** Manual, immutable backups. Supabase Auth verifies account ownership. */
 class SupabaseBackup(private val database: AppDatabase) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -33,23 +32,10 @@ class SupabaseBackup(private val database: AppDatabase) {
     private val adapter = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
         .adapter(BackupPayload::class.java)
 
-    private suspend fun session(): Pair<String, String> {
-        check(BuildConfig.SUPABASE_URL.isNotBlank() && BuildConfig.SUPABASE_PUBLISHABLE_KEY.isNotBlank()) {
-            "Supabase backup needs its project URL and publishable key configured."
-        }
-        val user = FirebaseAuth.getInstance().currentUser
-            ?: error("Sign in before using Supabase backup.")
-        check(!user.isAnonymous) { "Sign in with your account before using Supabase backup." }
-        var token = user.getIdToken(false).await()
-        if (token.claims["role"] != "authenticated") token = user.getIdToken(true).await()
-        check(token.claims["role"] == "authenticated") {
-            "Supabase login setup is incomplete: the Firebase account needs the authenticated role."
-        }
-        return user.uid to (token.token ?: error("Please sign in again."))
-    }
+    private suspend fun session(): Pair<String, String> = SupabaseSession.credentials()
 
     private fun checkUser(uid: String) {
-        check(FirebaseAuth.getInstance().currentUser?.uid == uid) {
+        check(SupabaseSession.currentUser?.uid == uid) {
             "Account changed. Please retry from your signed-in account."
         }
     }
@@ -72,7 +58,7 @@ class SupabaseBackup(private val database: AppDatabase) {
             .post(body.toRequestBody("application/json".toMediaType()))
         client.newCall(builder.build()).execute().use { response ->
             if (!response.isSuccessful) throw IOException(when (response.code) {
-                401, 403 -> "Supabase rejected login. Check Firebase third-party Auth and account permissions."
+                401, 403 -> "Supabase rejected login. Sign in again and check account permissions."
                 404 -> "Supabase backup table is not installed."
                 else -> "Supabase backup request failed (HTTP ${response.code}). Please retry."
             })

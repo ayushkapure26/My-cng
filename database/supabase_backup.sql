@@ -1,5 +1,5 @@
--- Hosted Supabase: register the app's Firebase project under Third-party Auth first.
--- Firebase UIDs are strings, not Supabase Auth UUIDs.
+-- Supabase Auth verifies JWTs; the owner is the token subject.
+-- Owner IDs remain text for compatibility with the installed backup schema.
 create table public.cng_mitra_backups (
     id uuid primary key default gen_random_uuid(),
     user_id text not null default (auth.jwt()->>'sub'),

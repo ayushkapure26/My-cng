@@ -1,91 +1,74 @@
-# Supabase backups for My-cng
+# Supabase connection for My-cng
 
-Settings now offers manual Supabase backup and restore for vehicles and refill
-history. Existing Firebase login, Firestore synchronization, and offline Room
-storage continue to work as before. This is a backup integration, not a migration
-of all Firestore collections or a live pump feed.
+This branch uses Supabase Auth directly. No Firebase project, Google services JSON,
+Firebase custom claims, or third-party Auth integration is needed.
 
-## Backend activation
+## Connected backend
 
-1. Use Supabase project `poujucgmlmelayrneduv` once its restore completes.
-2. Apply `database/supabase_backup.sql` once through the Supabase SQL editor if
-   the `public.cng_mitra_backups` table has not already been installed. The SQL
-   intentionally fails if the table exists; inspect an existing table instead
-   of dropping it. The table has RLS and only grants authenticated users SELECT
-   and INSERT of their own backups. Backups are append-only.
-3. In Supabase **Authentication → Third-party Auth**, add the Firebase project ID
-   used by this Android app. Find it in Firebase project settings or the local
-   `google-services.json`. Never substitute an unrelated Firebase project.
-4. On a trusted Firebase Admin server, preserve existing custom claims and add
-   `role: 'authenticated'` for accounts using this feature. Arrange the same for
-   new accounts with a Firebase Auth trigger. Never assign claims in Android code.
-   For example, using an already initialized Firebase Admin SDK:
+- Project: `poujucgmlmelayrneduv` (restored and healthy).
+- Email/password signup and login are enabled; email confirmation is required.
+- The URL and existing public anon key are included in `.env.example`, which the
+  existing Secrets Gradle plugin loads as defaults. This key grants no privileged
+  access. Never substitute a service-role key or `sb_secret_` key.
+- `public.cng_mitra_backups` is installed. RLS permits authenticated owners to read
+  and insert only their own snapshots; anonymous reads and client update/delete
+  access are denied. The SQL is recorded in `database/supabase_backup.sql`.
 
-   ```javascript
-   const user = await getAuth().getUser(uid);
-   await getAuth().setCustomUserClaims(uid, {
-     ...user.customClaims,
-     role: 'authenticated',
-   });
-   ```
+## Use after building
 
-5. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in the local `.env`/AI Studio
-   secrets. The example URL identifies the connected project. Use a Supabase
-   publishable key, or its existing legacy anon key for compatibility. Never put
-   a service-role key, `sb_secret_` key, or Firebase Admin credentials in the app.
-6. Rebuild the APK. Sign in and select **Settings → Supabase backup → Back up to
-   Supabase**. The app refreshes the Firebase token if the role is missing, and
-   clearly reports incomplete setup. No guest backup is allowed.
+1. Build the Android app from this branch.
+2. Register with an email and a password of at least 12 characters.
+3. Confirm the email using Supabase's email, then sign in to the app.
+4. Settings → Supabase backup → Back up to Supabase.
+5. On the same account, Restore latest Supabase backup merges missing entries.
 
-Official reference: [Firebase Auth with Supabase](https://supabase.com/docs/guides/auth/third-party/firebase-auth).
+No account has been created or confirmation email sent by this change. Email
+confirmation delivery, sender configuration and the confirmation redirect should
+be checked on the owner's device before release. Supabase's default email service
+has delivery/rate limits; configure production SMTP before onboarding users.
 
-## Restore behavior
+## Security and scope
 
-- Reads the newest backup visible to the signed-in user under RLS, across devices.
-- Validates the format and vehicle references before writing anything locally.
-- Merges in a single Room transaction. Existing cars are matched by normalized
-  registration; their fields remain unchanged. New local IDs replace old IDs.
-- Refill identity uses vehicle, timestamp, odometer, quantity and amount. Repeated
-  restore skips matching entries; conflicting existing entries are not overwritten.
-- Pump display names are retained but local pump IDs are cleared because IDs may
-  refer to different pumps on another installation.
-- Restoring does not automatically copy records into Firestore.
-- Account changes detected before/during restore abort the transaction.
+- Removed the previous fake offline password login and fabricated Google account.
+  A successful server response and `/auth/v1/user` verification are required.
+- Auth tokens remain only in process memory, never in SharedPreferences, logs or
+  Android backups. They refresh during the process lifetime; after process death,
+  the user signs in again. Stored legacy login flags do not grant access.
+- Logout clears local tokens and requests revocation of the current server session.
+  If the server request fails, the UI reports that revocation was not confirmed.
+  Already issued JWTs can remain valid until expiry under standard Supabase Auth.
+- Google sign-in is visibly disabled because the backend provider is not configured.
+  Password recovery is explicitly unavailable in this build; it does not pretend
+  to send an email. These flows need configuration and device testing before release.
+- Firestore auto-backup and community-write wiring are disconnected. Offline Room
+  data remains on the device. This change covers manual vehicle/refill backups,
+  not a live pump feed or automatic cross-device synchronization.
+- Each snapshot represents the current device. The existing Room database is
+  device-local and shared across app sign-ins; do not treat sign-out as erasing or
+  hiding local records. Manual backup uploads that device's records to the selected
+  account. This app does not yet support isolated multi-user local profiles.
+- Restore validates relationships and merges inside a Room transaction. Vehicles
+  match by normalized registration. Refill identity uses vehicle, timestamp,
+  odometer, quantity and amount. Existing entries are not overwritten. Local pump
+  IDs are cleared on restore while display names are kept.
+- Backups are append-only and accumulate. App payload limit is 4 MB; database limit
+  is 5 MB. Retention is controlled by the project owner.
 
-## Limits and validation
+## Verification
 
-- Manual backups cover cars and refills only. They do not include reviews, pump
-  status, profile details, preferences, authentication accounts or uploaded files.
-- Each backup is a snapshot of the current device, not a cross-device sync merge.
-  The local database is shared by the existing app across sign-ins; sign in to the
-  intended account before backing up the device's records.
-- Backups are limited to 4 MB of serialized JSON in the app and 5 MB in Postgres.
-  Snapshots accumulate; retention must be managed by the project owner.
-- Missing registrations and duplicate registrations are rejected to avoid
-  ambiguous restore. Existing local data is never deleted by this integration.
-- Tests in `SupabaseBackupTest` cover malformed relationships, duplicate
-  registrations, unsupported formats, invalid amounts and deduplication keys.
-- This source snapshot has no Gradle wrapper. Build and run the tests in an Android
-  environment compatible with the repository's existing AGP 9.1.1 configuration.
-  An APK build and a signed-in device backup/restore must pass before release.
+- Live Auth settings returned HTTP 200: email enabled, signup enabled, email
+  confirmation required, Google and anonymous sign-in disabled.
+- Anonymous REST access to backups returned HTTP 401.
+- SQL owner-read, cross-account read/insert isolation, and denied update/delete
+  tests passed in a transaction; all verification rows were rolled back.
+- Security advisor reports authenticated GraphQL schema discoverability. This is
+  expected for owner SELECT access; RLS still restricts rows.
+- `git diff --check` passed. `SupabaseBackupTest` covers invalid payloads and
+  deduplication keys. Android tests and APK build remain unexecuted: this snapshot
+  has no Gradle wrapper and this workspace has no Gradle/Android SDK.
+- A real account signup, email confirmation, login, refresh, logout and repeated
+  device restore must pass before release. This is a draft, not a released APK.
 
-For an end-to-end check, back up two vehicles and several refills, restore into a
-fresh installation using the same account, and repeat restore to check no
-duplicates are added. A second account must not read the first account's backup.
-
-## Backend verification performed
-
-The connected Supabase project was resumed and the table installed with migration
-`cng_mitra_manual_backups`. Transactional SQL checks passed for owner reads,
-cross-account read/insert isolation, blocked anonymous reads, and blocked client
-updates/deletes. All verification rows were rolled back.
-
-The security advisor reports that authenticated accounts can discover this table
-in the GraphQL schema because they have SELECT access. This is expected for the
-backup client; row visibility remains restricted by RLS. See the
-[advisor explanation](https://supabase.com/docs/guides/database/database-linter?lint=0027_pg_graphql_authenticated_table_exposed).
-
-The Android tests and APK build have not been executed in this workspace: Gradle,
-the Gradle wrapper and an Android SDK are unavailable. Firebase third-party Auth,
-role claims and the local publishable-key setting still require configuration;
-live end-to-end backup has not yet been verified.
+References: [Supabase password authentication](https://supabase.com/docs/guides/auth/passwords),
+[session behavior](https://supabase.com/docs/guides/auth/sessions),
+[RLS](https://supabase.com/docs/guides/database/postgres/row-level-security).

@@ -14,10 +14,10 @@ This repository contains an earlier project source snapshot. Build and service c
 - `gradle/` — Dependency version catalog
 - `.env.example` — Placeholder configuration for optional API integrations
 
-Do not commit API keys or private signing files.
+Do not commit privileged API keys or private signing files. The Supabase public anon key is a client identifier protected by database RLS.
 
 ## Supabase backup
 
 Manual vehicle/refill backup and restore is available in Settings. See
-[Supabase setup](docs/SUPABASE_SETUP.md) for the database SQL, Firebase login
+[Supabase setup](docs/SUPABASE_SETUP.md) for the database SQL, Supabase email login
 integration and required environment configuration.

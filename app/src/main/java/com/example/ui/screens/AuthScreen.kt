@@ -356,7 +356,7 @@ fun AuthScreen(
                             }
                         }
                     },
-                    enabled = !state.isAuthLoading,
+                    enabled = false,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp)
@@ -389,7 +389,7 @@ fun AuthScreen(
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "Continue with Google",
+                            text = "Google sign-in unavailable",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -489,7 +489,7 @@ fun AuthScreen(
                                 localError = null
                             },
                             label = { Text("Password") },
-                            placeholder = { Text("At least 6 characters") },
+                            placeholder = { Text("At least 12 characters for registration") },
                             leadingIcon = {
                                 Icon(Icons.Default.Lock, contentDescription = null, tint = DarkTeal)
                             },
