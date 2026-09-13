@@ -106,11 +106,6 @@ class MainActivity : ComponentActivity() {
 
         val database = AppDatabase.getDatabase(applicationContext)
         val preferences = AppPreferences(applicationContext)
-        val firestoreSyncRepo = com.example.data.repository.FirestoreSyncRepositoryImpl(
-            carDao = database.carDao(),
-            refillDao = database.refillDao(),
-            appPreferences = preferences
-        )
         val repository = CngRepository(
             carDao = database.carDao(),
             pumpDao = database.pumpDao(),
@@ -118,7 +113,7 @@ class MainActivity : ComponentActivity() {
             pumpRatingDao = database.pumpRatingDao(),
             priceHistoryDao = database.priceHistoryDao(),
             cachedSearchDao = database.cachedSearchDao(),
-            firestoreSyncRepository = firestoreSyncRepo
+            firestoreSyncRepository = null
         )
         val localeManager = LocaleManager.getInstance(applicationContext)
 
@@ -170,7 +165,7 @@ fun CngTrackMainApp(
 
     // ViewModels
     val homeViewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory(repository))
-    val pumpViewModel: PumpViewModel = viewModel(factory = PumpViewModel.Factory(repository, settingsViewModel.syncHelper))
+    val pumpViewModel: PumpViewModel = viewModel(factory = PumpViewModel.Factory(repository))
     val refillViewModel: RefillViewModel = viewModel(factory = RefillViewModel.Factory(repository))
     val carViewModel: CarViewModel = viewModel(factory = CarViewModel.Factory(repository))
     val reportViewModel: ReportViewModel = viewModel(factory = ReportViewModel.Factory(repository))

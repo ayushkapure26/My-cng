@@ -11,7 +11,7 @@ import com.example.data.repository.CngRepository
 import com.example.util.AppPreferences
 import com.example.util.AuthResult
 import com.example.util.CloudSyncState
-import com.example.util.FirebaseAuthManager
+import com.example.util.SupabaseAuthManager
 import com.example.util.FirestoreSyncHelper
 import com.example.util.ImportExportManager
 import com.example.util.LocaleManager
@@ -58,6 +58,7 @@ data class SettingsUiState(
     val monthlyBudgetRs: Double = 5000.0,
     // Cloud Firestore Sync State
     val isCloudSyncing: Boolean = false,
+    val isSupabaseSyncing: Boolean = false,
     val lastCloudSyncMessage: String? = null,
     val isCloudSyncSuccess: Boolean = true
 )
@@ -68,8 +69,7 @@ class SettingsViewModel(
     private val localeManager: LocaleManager
 ) : ViewModel() {
 
-    private val authManager = FirebaseAuthManager()
-    val syncHelper = FirestoreSyncHelper(repository, appPreferences)
+    private val authManager = SupabaseAuthManager()
 
     val settingsState = MutableStateFlow(
         SettingsUiState(
@@ -85,14 +85,14 @@ class SettingsViewModel(
             selectedCity = appPreferences.selectedCity,
             selectedLanguage = localeManager.selectedLanguageState.value,
             themeMode = appPreferences.themeMode,
-            isLoggedIn = appPreferences.isLoggedIn || authManager.isUserLoggedIn,
-            userId = appPreferences.userId.ifBlank { authManager.currentUser?.uid ?: "" },
+            isLoggedIn = authManager.isUserLoggedIn,
+            userId = authManager.currentUser?.uid ?: "",
             userName = authManager.currentUser?.displayName ?: appPreferences.userName,
             userEmail = authManager.currentUser?.email ?: appPreferences.userEmail,
             userPhone = authManager.currentUser?.phone ?: appPreferences.userPhone,
             memberSince = appPreferences.memberSince,
             monthlyBudgetRs = appPreferences.monthlyBudget,
-            lastCloudSyncMessage = syncHelper.syncState.value.lastSyncMessage
+            lastCloudSyncMessage = null
         )
     )
 
@@ -101,16 +101,6 @@ class SettingsViewModel(
             localeManager.selectedLanguageFlow.collectLatest { lang ->
                 settingsState.value = settingsState.value.copy(
                     selectedLanguage = lang
-                )
-            }
-        }
-
-        viewModelScope.launch {
-            syncHelper.syncState.collectLatest { cloudState ->
-                settingsState.value = settingsState.value.copy(
-                    isCloudSyncing = cloudState.isSyncing,
-                    lastCloudSyncMessage = cloudState.lastSyncMessage ?: cloudState.errorMessage,
-                    isCloudSyncSuccess = cloudState.isSuccess
                 )
             }
         }
@@ -362,7 +352,7 @@ class SettingsViewModel(
                         isError = false
                     )
                     onResult(true)
-                    syncToCloud()
+                    // Backups are explicitly initiated by the signed-in user.
                 }
                 is AuthResult.Error -> {
                     settingsState.value = settingsState.value.copy(
@@ -371,6 +361,11 @@ class SettingsViewModel(
                         statusMessage = result.errorMessage,
                         isError = true
                     )
+                    onResult(false)
+                }
+                is AuthResult.ConfirmationRequired -> {
+                    settingsState.value = settingsState.value.copy(isAuthLoading = false,
+                        authErrorMessage = null, statusMessage = result.message, isError = false)
                     onResult(false)
                 }
                 AuthResult.Loading -> {
@@ -418,7 +413,7 @@ class SettingsViewModel(
                         isError = false
                     )
                     onResult(true)
-                    syncToCloud()
+                    // Backups are explicitly initiated by the signed-in user.
                 }
                 is AuthResult.Error -> {
                     settingsState.value = settingsState.value.copy(
@@ -427,6 +422,11 @@ class SettingsViewModel(
                         statusMessage = result.errorMessage,
                         isError = true
                     )
+                    onResult(false)
+                }
+                is AuthResult.ConfirmationRequired -> {
+                    settingsState.value = settingsState.value.copy(isAuthLoading = false,
+                        authErrorMessage = null, statusMessage = result.message, isError = false)
                     onResult(false)
                 }
                 AuthResult.Loading -> {
@@ -466,7 +466,7 @@ class SettingsViewModel(
                         isError = false
                     )
                     onResult(true)
-                    syncToCloud()
+                    // Backups are explicitly initiated by the signed-in user.
                 }
                 is AuthResult.Error -> {
                     settingsState.value = settingsState.value.copy(
@@ -475,6 +475,11 @@ class SettingsViewModel(
                         statusMessage = result.errorMessage,
                         isError = true
                     )
+                    onResult(false)
+                }
+                is AuthResult.ConfirmationRequired -> {
+                    settingsState.value = settingsState.value.copy(isAuthLoading = false,
+                        authErrorMessage = null, statusMessage = result.message, isError = false)
                     onResult(false)
                 }
                 AuthResult.Loading -> {
@@ -560,70 +565,42 @@ class SettingsViewModel(
     }
 
     fun testFirestoreConnection() {
-        viewModelScope.launch {
-            settingsState.value = settingsState.value.copy(isCloudSyncing = true)
-            val result = syncHelper.testFirestoreConnection()
-            result.onSuccess { msg ->
-                settingsState.value = settingsState.value.copy(
-                    isCloudSyncing = false,
-                    lastCloudSyncMessage = msg,
-                    statusMessage = msg,
-                    isError = false
-                )
-            }.onFailure { err ->
-                settingsState.value = settingsState.value.copy(
-                    isCloudSyncing = false,
-                    lastCloudSyncMessage = err.localizedMessage,
-                    statusMessage = err.localizedMessage ?: "Connection test failed",
-                    isError = true
-                )
-            }
-        }
+        settingsState.value = settingsState.value.copy(statusMessage = "Use Supabase backup below.")
     }
+    fun syncToCloud() = testFirestoreConnection()
+    fun restoreFromCloud() = testFirestoreConnection()
 
-    fun syncToCloud() {
+    fun runSupabaseBackup(context: Context, restore: Boolean = false) {
+        if (settingsState.value.isSupabaseSyncing) return
+        settingsState.value = settingsState.value.copy(isSupabaseSyncing = true)
+        val database = com.example.data.local.AppDatabase.getDatabase(context.applicationContext)
         viewModelScope.launch {
-            val result = syncHelper.syncLocalDataToCloud()
-            result.onSuccess { summary ->
+            try {
+                val backup = com.example.data.remote.SupabaseBackup(database)
+                val message = if (restore) backup.restore() else backup.backup()
+                settingsState.value = settingsState.value.copy(statusMessage = message, isError = false)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
                 settingsState.value = settingsState.value.copy(
-                    statusMessage = summary.message,
-                    isError = false
-                )
-            }.onFailure { err ->
-                settingsState.value = settingsState.value.copy(
-                    statusMessage = err.localizedMessage ?: "Failed to sync to Firestore cloud",
+                    statusMessage = error.localizedMessage ?: "Supabase backup failed. Please retry.",
                     isError = true
                 )
-            }
-        }
-    }
-
-    fun restoreFromCloud() {
-        viewModelScope.launch {
-            val result = syncHelper.restoreCloudDataToLocal()
-            result.onSuccess { summary ->
-                settingsState.value = settingsState.value.copy(
-                    statusMessage = summary.message,
-                    isError = false
-                )
-            }.onFailure { err ->
-                settingsState.value = settingsState.value.copy(
-                    statusMessage = err.localizedMessage ?: "Failed to restore from Firestore cloud",
-                    isError = true
-                )
+            } finally {
+                settingsState.value = settingsState.value.copy(isSupabaseSyncing = false)
             }
         }
     }
 
     fun logout(context: Context? = null) {
         viewModelScope.launch {
-            authManager.signOut(context)
+            val logoutMessage = authManager.signOut(context)
             appPreferences.isLoggedIn = false
             appPreferences.userId = ""
             settingsState.value = settingsState.value.copy(
                 isLoggedIn = false,
                 userId = "",
-                statusMessage = "Signed out from account. Switched to local offline mode.",
+                statusMessage = logoutMessage,
                 isError = false
             )
         }

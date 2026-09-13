@@ -165,7 +165,7 @@ fun UserProfileSection(
                             Spacer(modifier = Modifier.width(6.dp))
                             Icon(
                                 imageVector = Icons.Default.CheckCircle,
-                                contentDescription = "Firebase Verified Driver",
+                                contentDescription = "Signed-in driver",
                                 tint = EmeraldGreen,
                                 modifier = Modifier.size(16.dp)
                             )
@@ -351,155 +351,6 @@ fun UserProfileSection(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Firebase Firestore Cloud Sync Hub
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                    border = BorderStroke(1.dp, if (state.isCloudSyncSuccess) EmeraldGreen.copy(alpha = 0.3f) else MaterialTheme.colorScheme.error.copy(alpha = 0.3f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = if (state.isCloudSyncing) Icons.Default.CloudSync else Icons.Default.CloudDone,
-                                    contentDescription = null,
-                                    tint = if (state.isCloudSyncSuccess) EmeraldGreen else MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Column {
-                                    Text(
-                                        text = "Firestore Cloud Service",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = "Multi-device realtime database & backup",
-                                        fontSize = 10.sp,
-                                        color = EmeraldGreen
-                                    )
-                                }
-                            }
-
-                            if (state.isCloudSyncing) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(14.dp),
-                                    strokeWidth = 2.dp,
-                                    color = DarkTeal
-                                )
-                            }
-                        }
-
-                        if (!state.lastCloudSyncMessage.isNullOrBlank()) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = if (state.isCloudSyncSuccess) EmeraldGreen.copy(alpha = 0.1f) else MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = state.lastCloudSyncMessage,
-                                    fontSize = 11.sp,
-                                    modifier = Modifier.padding(6.dp),
-                                    color = if (state.isCloudSyncSuccess) DarkTeal else MaterialTheme.colorScheme.error
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Toggles
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Auto-Sync Refills & Garage",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            androidx.compose.material3.Switch(
-                                checked = state.isFirestoreAutoSyncEnabled,
-                                onCheckedChange = onToggleAutoSync,
-                                modifier = Modifier.size(height = 24.dp, width = 42.dp)
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Community Live CNG Sync",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            androidx.compose.material3.Switch(
-                                checked = state.isFirestoreCommunitySyncEnabled,
-                                onCheckedChange = onToggleCommunitySync,
-                                modifier = Modifier.size(height = 24.dp, width = 42.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Button(
-                                onClick = onSyncCloud,
-                                enabled = !state.isCloudSyncing,
-                                colors = ButtonDefaults.buttonColors(containerColor = DarkTeal),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("btn_sync_to_cloud")
-                            ) {
-                                Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(12.dp), tint = Color.White)
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text("Sync", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.SemiBold)
-                            }
-
-                            OutlinedButton(
-                                onClick = onRestoreCloud,
-                                enabled = !state.isCloudSyncing,
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("btn_restore_from_cloud")
-                            ) {
-                                Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(12.dp), tint = DarkTeal)
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text("Restore", fontSize = 11.sp, color = DarkTeal, fontWeight = FontWeight.SemiBold)
-                            }
-
-                            OutlinedButton(
-                                onClick = onTestConnection,
-                                enabled = !state.isCloudSyncing,
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("btn_test_firestore")
-                            ) {
-                                Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(12.dp), tint = EmeraldGreen)
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text("Test Ping", fontSize = 11.sp, color = EmeraldGreen, fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
                 // Actions: Edit Profile & Sign Out
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -581,7 +432,7 @@ fun UserProfileSection(
                 ) {
                     Button(
                         onClick = onSignInWithGoogle,
-                        enabled = !state.isAuthLoading,
+                        enabled = false,
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("btn_google_sign_in"),
@@ -613,7 +464,7 @@ fun UserProfileSection(
                             }
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "Sign in with Google",
+                                text = "Google sign-in unavailable",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -816,7 +667,7 @@ fun FirebaseAuthDialog(
                 // One-tap Google Sign-In Button
                 Button(
                     onClick = onSignInWithGoogle,
-                    enabled = !isLoading,
+                    enabled = false,
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("dialog_google_sign_in_btn"),
@@ -848,7 +699,7 @@ fun FirebaseAuthDialog(
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Continue with Google",
+                            text = "Use email to sign in",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
                         )
