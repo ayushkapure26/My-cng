@@ -1,0 +1,3 @@
+# Mandatory security baseline
+For every feature and release, follow SECURITY_BASELINE.md and update docs/SECURITY_REVIEW.md with evidence, tests and unresolved deployment controls. These requirements apply to AI-generated code too.
+Never put privileged credentials in Android BuildConfig, resources, browser bundles, logs or version control. Client environment variables are not secret storage. Preserve ownership checks and RLS; test negative authorization when changing access. Run the redacted secret scan before proposing commits. Report unverified deployment settings honestly. A prompt alone does not secure an application.

@@ -177,7 +177,7 @@ fun GeminiCngAdvisorSheet(
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "Gemini AI CNG Advisor",
+                                text = "CNG Offline Guide",
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 17.sp,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -248,7 +248,7 @@ fun GeminiCngAdvisorSheet(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.QuestionAnswer, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Ask AI", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Ask guide", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 )
@@ -402,7 +402,7 @@ private fun TipsTabContent(
                     CircularProgressIndicator(color = EmeraldGreen, modifier = Modifier.size(36.dp))
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Consulting Gemini AI engineering engine...",
+                        text = "Loading offline guidance...",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -552,7 +552,7 @@ private fun HealthAuditTabContent(
                 CircularProgressIndicator(color = EmeraldGreen, modifier = Modifier.size(36.dp))
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "Running AI Vehicle Health & Diagnostic Audit...",
+                    text = "Preparing recorded-data summary...",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -931,7 +931,7 @@ private fun AskAiTabContent(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Gemini AI Answer",
+                                text = "Offline guidance",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.onSurface

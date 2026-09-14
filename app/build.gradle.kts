@@ -5,7 +5,6 @@ plugins {
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.roborazzi)
-  alias(libs.plugins.secrets)
   alias(libs.plugins.google.services)
 }
 
@@ -68,12 +67,25 @@ android {
   }
 }
 
-// Configure the Secrets Gradle Plugin to use .env and .env.example files
-// to match the convention used in Web projects.
-secrets {
-  propertiesFileName = ".env"
-  defaultPropertiesFileName = ".env.example"
-  ignoreList.add("FIREBASE_APPCHECK_DEBUG_TOKEN")
+// Explicit public configuration allowlist: Android BuildConfig is extractable.
+val publicConfig = java.util.Properties().apply {
+  listOf(rootProject.file(".env.example"), rootProject.file(".env")).forEach { config ->
+    if (config.exists()) config.inputStream().use { load(it) }
+  }
+}
+fun publicValue(name: String): String = System.getenv(name) ?: publicConfig.getProperty(name, "")
+fun quoted(value: String): String = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r") + "\""
+android.defaultConfig {
+  buildConfigField("String", "SUPABASE_URL", quoted(publicValue("SUPABASE_URL")))
+  val publicKey = publicValue("SUPABASE_PUBLISHABLE_KEY")
+  require(!publicKey.startsWith("sb_secret_")) { "Privileged keys must never enter Android builds" }
+  if (publicKey.startsWith("eyJ")) {
+    val claims = String(java.util.Base64.getUrlDecoder().decode(publicKey.split('.')[1]))
+    require(Regex("\"role\"\\s*:\\s*\"anon\"").containsMatchIn(claims)) { "Only an anon key is permitted in Android" }
+  }
+  buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", quoted(publicKey))
+  // Maps keys are public Android credentials; restrict package, signing cert and APIs in Google Cloud.
+  manifestPlaceholders["MAPS_API_KEY"] = publicValue("MAPS_API_KEY")
 }
 
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }

@@ -1,6 +1,8 @@
 package com.example.util
 
 import android.content.Context
+import android.os.SystemClock
+import android.util.Log
 import com.example.BuildConfig
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -30,8 +32,8 @@ sealed class AuthResult {
 object SupabaseSession {
     private val mutex = Mutex()
     @Volatile private var state: Session? = null
-    private data class Session(val user: AuthUser, val access: String, val refresh: String, val expires: Long)
-    val currentUser: AuthUser? get() = state?.user
+    private data class Session(val user: AuthUser, val access: String, val refresh: String, val expires: Long, val deadline: Long)
+    val currentUser: AuthUser? get() = state?.takeIf { SystemClock.elapsedRealtime() < it.deadline }?.user
     private val http = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS)
         .callTimeout(30, TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false).build()
 
@@ -45,6 +47,7 @@ object SupabaseSession {
         if (bearer != null) builder.header("Authorization", "Bearer $bearer")
         if (payload != null) builder.post(payload.toString().toRequestBody("application/json".toMediaType()))
         http.newCall(builder.build()).execute().use { response ->
+            Log.i("CngSecurity", "auth_http status=${response.code}")
             val body = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
                 val code = runCatching { JSONObject(body).optString("error_code") }.getOrDefault("")
@@ -60,16 +63,17 @@ object SupabaseSession {
         }
     }
 
-    private fun accept(json: JSONObject): AuthUser {
+    private fun accept(json: JSONObject, deadline: Long = SystemClock.elapsedRealtime() + TimeUnit.HOURS.toMillis(12)): AuthUser {
         val token = json.getString("access_token")
         // Use the server-verified user endpoint, never user-controlled profile claims for identity.
         val user = request("user", bearer = token)
+        require(!user.optString("email_confirmed_at").let { it.isBlank() || it == "null" }) { "Confirm your email before signing in." }
         val meta = user.optJSONObject("user_metadata") ?: JSONObject()
         val parsed = AuthUser(user.getString("id"), user.optString("email"),
             meta.optString("display_name").ifBlank { "CNG Driver" }, meta.optString("phone"))
         require(!user.optBoolean("is_anonymous", false)) { "An account is required for cloud backup." }
         state = Session(parsed, token, json.getString("refresh_token"),
-            System.currentTimeMillis() + json.optLong("expires_in", 3600) * 1000)
+            System.currentTimeMillis() + json.optLong("expires_in", 3600).coerceIn(1, 3600) * 1000, deadline)
         return parsed
     }
 
@@ -90,9 +94,13 @@ object SupabaseSession {
 
     suspend fun credentials(): Pair<String, String> = withContext(Dispatchers.IO) { mutex.withLock {
         var session = state ?: error("Sign in to your Supabase account first.")
+        if (SystemClock.elapsedRealtime() >= session.deadline) {
+            state = null
+            error("Session expired. Please sign in again.")
+        }
         if (session.expires <= System.currentTimeMillis() + 60000) {
             try {
-                accept(request("token?grant_type=refresh_token", JSONObject().put("refresh_token", session.refresh)))
+                accept(request("token?grant_type=refresh_token", JSONObject().put("refresh_token", session.refresh)), session.deadline)
                 session = state ?: error("Please sign in again.")
             } catch (e: Exception) {
                 state = null
