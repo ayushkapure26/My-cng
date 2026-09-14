@@ -1,3 +1,5 @@
+import java.util.Properties
+import java.util.Base64
 import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
 
 plugins {
@@ -68,7 +70,7 @@ android {
 }
 
 // Explicit public configuration allowlist: Android BuildConfig is extractable.
-val publicConfig = java.util.Properties().apply {
+val publicConfig = Properties().apply {
   listOf(rootProject.file(".env.example"), rootProject.file(".env")).forEach { config ->
     if (config.exists()) config.inputStream().use { load(it) }
   }
@@ -80,7 +82,7 @@ android.defaultConfig {
   val publicKey = publicValue("SUPABASE_PUBLISHABLE_KEY")
   require(!publicKey.startsWith("sb_secret_")) { "Privileged keys must never enter Android builds" }
   if (publicKey.startsWith("eyJ")) {
-    val claims = String(java.util.Base64.getUrlDecoder().decode(publicKey.split('.')[1]))
+    val claims = String(Base64.getUrlDecoder().decode(publicKey.split('.')[1]))
     require(Regex("\"role\"\\s*:\\s*\"anon\"").containsMatchIn(claims)) { "Only an anon key is permitted in Android" }
   }
   buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", quoted(publicKey))
