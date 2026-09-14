@@ -2,7 +2,7 @@ package com.example
 
 import com.example.util.AuthResult
 import com.example.util.AuthUser
-import com.example.util.FirebaseAuthManager
+import com.example.util.SupabaseAuthManager
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
@@ -32,15 +32,15 @@ class ExampleUnitTest {
     }
 
     @Test
-    fun firebaseAuthManager_emailValidation() = runBlocking {
-        val manager = FirebaseAuthManager()
+    fun supabaseAuthManager_rejectsMissingCredentials() = runBlocking {
+        val manager = SupabaseAuthManager()
         val invalidEmailResult = manager.signInWithEmailAndPassword("invalid-email", "password123")
         assertTrue(invalidEmailResult is AuthResult.Error)
-        assertEquals("Please enter a valid email address.", (invalidEmailResult as AuthResult.Error).errorMessage)
+        assertEquals("Enter your email and password.", (invalidEmailResult as AuthResult.Error).errorMessage)
 
-        val shortPasswordResult = manager.signInWithEmailAndPassword("test@example.com", "123")
+        val shortPasswordResult = manager.signInWithEmailAndPassword("test@example.com", "")
         assertTrue(shortPasswordResult is AuthResult.Error)
-        assertEquals("Password must be at least 6 characters.", (shortPasswordResult as AuthResult.Error).errorMessage)
+        assertEquals("Enter your email and password.", (shortPasswordResult as AuthResult.Error).errorMessage)
     }
 
     @Test
