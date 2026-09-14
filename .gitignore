@@ -16,3 +16,11 @@
 local.properties
 .env
 debug.keystore
+
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.pem
+service-account*.json
