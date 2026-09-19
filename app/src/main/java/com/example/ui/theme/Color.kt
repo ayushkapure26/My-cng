@@ -7,30 +7,30 @@ import androidx.compose.ui.graphics.Color
 // ==========================================
 
 // Primary Action Accent: Signature Lime
-val NeonLime = Color(0xFFC5F45A)
-val NeonLimeDark = Color(0xFFAEDC43)
-val NeonLimeLight = Color(0xFFD6F87E)
+val NeonLime = Color(0xFF7FA58D)
+val NeonLimeDark = Color(0xFF6B927A)
+val NeonLimeLight = Color(0xFFA8C3B1)
 
 // Deep Forest (Contrast anchor for light mode text & dark accents)
-val DeepForest = Color(0xFF102A23)
-val DeepForestDark = Color(0xFF0A1C17)
-val DeepForestLight = Color(0xFF1B3B32)
+val DeepForest = Color(0xFF21342C)
+val DeepForestDark = Color(0xFF15231D)
+val DeepForestLight = Color(0xFF31483E)
 
 // Light Mode: Warm off-white #F6F7F2, deep forest text #102A23
-val NeonLightBg = Color(0xFFF6F7F2)
-val NeonLightSurface = Color(0xFFFFFFFF)
-val NeonLightSurfaceVariant = Color(0xFFEBEFE6)
-val NeonLightBorder = Color(0xFFD5DDD0)
-val NeonLightText = Color(0xFF102A23)
-val NeonLightTextMuted = Color(0xFF3B564E)
+val NeonLightBg = Color(0xFFF3F1EA)
+val NeonLightSurface = Color(0xFFFBFAF6)
+val NeonLightSurfaceVariant = Color(0xFFE8E5DB)
+val NeonLightBorder = Color(0xFFD1CEC4)
+val NeonLightText = Color(0xFF21342C)
+val NeonLightTextMuted = Color(0xFF666E68)
 
 // Dark Mode: Charcoal-green #101B17, surfaces #1B2B24, ivory text
-val NeonDarkBg = Color(0xFF101B17)
-val NeonDarkSurface = Color(0xFF1B2B24)
-val NeonDarkSurfaceVariant = Color(0xFF243A31)
-val NeonDarkBorder = Color(0xFF2C443A)
-val NeonDarkText = Color(0xFFF3F4ED)
-val NeonDarkTextMuted = Color(0xFFB0C2B9)
+val NeonDarkBg = Color(0xFF151A17)
+val NeonDarkSurface = Color(0xFF1D2420)
+val NeonDarkSurfaceVariant = Color(0xFF29322D)
+val NeonDarkBorder = Color(0xFF3A4540)
+val NeonDarkText = Color(0xFFF1F0EA)
+val NeonDarkTextMuted = Color(0xFFAFB6B0)
 
 // Status Indicators (never used alone, accompanied by labels & icons)
 val StatusEmeraldLight = Color(0xFF15803D)
@@ -54,8 +54,8 @@ val StatusUnknownBgLight = Color(0xFFF1F5F9)
 val StatusUnknownBgDark = Color(0xFF1E293B)
 
 // Road & Route Motif Line
-val NeonRouteLine = Color(0xFF65A30D)
-val NeonRouteMarker = Color(0xFFC5F45A)
+val NeonRouteLine = Color(0xFF577565)
+val NeonRouteMarker = Color(0xFF7FA58D)
 
 // Backward-compatible mappings so existing components compile seamlessly
 val EmeraldGreen = StatusEmeraldLight
