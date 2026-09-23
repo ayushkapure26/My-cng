@@ -1,0 +1,38 @@
+name: Security baseline
+on:
+  push:
+    branches: [security/baseline]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan current files and history
+        run: python3 scripts/security_check.py --history
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android platform
+        run: sdkmanager 'platforms;android-36.1' 'build-tools;36.0.0'
+      - name: Create test signing key
+        run: keytool -genkeypair -keystore debug.keystore -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 365 -dname 'CN=Android Debug,O=Android,C=US'
+      - name: Check authentication and backup validation
+        run: gradle :app:testDebugUnitTest --tests com.example.ExampleUnitTest --tests com.example.SupabaseBackupTest --no-configuration-cache --stacktrace
+      - name: Report screenshot test failures
+        if: failure()
+        run: cat app/build/test-results/testDebugUnitTest/*.xml || true
+      - name: Build APK
+        run: gradle :app:assembleDebug --stacktrace --no-configuration-cache
