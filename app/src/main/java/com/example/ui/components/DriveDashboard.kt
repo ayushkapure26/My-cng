@@ -110,7 +110,8 @@ fun DriveDashboard(
                 Spacer(Modifier.width(6.dp))
                 Text("Add refill", fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
-            OutlinedButton(onClick = onFindPump, modifier = Modifier.weight(1f).heightIn(min = 58.dp).testTag("drive_find_pump"),
+            OutlinedButton(onClick = onFindPump,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), modifier = Modifier.weight(1f).heightIn(min = 58.dp).testTag("drive_find_pump"),
                 shape = RoundedCornerShape(18.dp), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 16.dp)) {
                 Icon(Icons.Default.LocalGasStation, null, Modifier.size(20.dp))
                 Spacer(Modifier.width(6.dp))
@@ -120,7 +121,7 @@ fun DriveDashboard(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween) {
             Text("This month", color = MaterialTheme.colorScheme.onSurface, fontSize = 21.sp, fontWeight = FontWeight.Bold)
-            TextButton(onClick = onReports) { Text("View report →", fontWeight = FontWeight.SemiBold) }
+            TextButton(onClick = onReports, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)) { Text("View report →", fontWeight = FontWeight.SemiBold) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Surface(modifier = Modifier.weight(1f), shape = RoundedCornerShape(22.dp),
